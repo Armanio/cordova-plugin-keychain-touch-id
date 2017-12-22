@@ -31,8 +31,11 @@
     if(touchIDAvailable){
         CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
         [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
-    }
-    else{
+    } else {
+        if(error.code == -8) {
+            CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK];
+            [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+        }
         if(error.code == -7){
             CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"No FP available"];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
@@ -41,7 +44,6 @@
             CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"No hardware available"];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
-
     }
 }
 
@@ -117,30 +119,51 @@
     else {
         message = (NSString *) o;
     }
-    
-    
+
+
     BOOL hasLoginKey = [[NSUserDefaults standardUserDefaults] boolForKey:self.TAG];
     if(hasLoginKey){
-        BOOL touchIDAvailable = [self.laContext canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:nil];
-
+        NSError *error = nil;
+        BOOL touchIDAvailable = [self.laContext canEvaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics error:&error];
         if(touchIDAvailable){
             [self.laContext evaluatePolicy:LAPolicyDeviceOwnerAuthenticationWithBiometrics localizedReason:message reply:^(BOOL success, NSError *error) {
                 dispatch_async(dispatch_get_main_queue(), ^{
-
                 if(success){
                     NSString *password = [self.MyKeychainWrapper myObjectForKey:@"v_Data"];
-									  CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: password];
+                    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: password];
                     [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
                 }
                 if(error != nil) {
-										CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [NSString stringWithFormat:@"%li", error.code]];
-										[self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                    if(error.code == -8) {
+                        [self.laContext evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:message reply:^(BOOL success, NSError * _Nullable error) {
+                            if(success){
+                                NSString *password = [self.MyKeychainWrapper myObjectForKey:@"v_Data"];
+                                CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: password];
+                                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                            } else {
+                                CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [NSString stringWithFormat:@"%li", error.code]];
+                                [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                            }
+                        }];
+                    } else {
+                        CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [NSString stringWithFormat:@"%li", error.code]];
+                        [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                    }
                 }
                 });
             }];
-
-        }
-        else{
+        } else if(error.code == -8) {
+            [self.laContext evaluatePolicy:LAPolicyDeviceOwnerAuthentication localizedReason:message reply:^(BOOL success, NSError * _Nullable error) {
+                if(success){
+                    NSString *password = [self.MyKeychainWrapper myObjectForKey:@"v_Data"];
+                    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_OK messageAsString: password];
+                    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                } else {
+                    CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: [NSString stringWithFormat:@"%li", error.code]];
+                    [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
+                }
+            }];
+        } else {
             CDVPluginResult* pluginResult = [CDVPluginResult resultWithStatus:CDVCommandStatus_ERROR messageAsString: @"-1"];
             [self.commandDelegate sendPluginResult:pluginResult callbackId:command.callbackId];
         }
