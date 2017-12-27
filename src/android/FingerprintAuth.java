@@ -448,6 +448,10 @@ public class FingerprintAuth extends CordovaPlugin {
                                                        .getFragmentManager(), DIALOG_FRAGMENT_TAG);
                         }
                         catch (IllegalStateException ignored) {
+                            mCallbackContext.error("Application is running in the background, fingerprint dialog cannot be shown");
+                            mPluginResult = new PluginResult(PluginResult.Status.ERROR);
+                            mCallbackContext.sendPluginResult(mPluginResult);
+
                             Log.i(TAG, "Application is running in the background, fingerprint dialog cannot be shown");
                         }
                 } else {
